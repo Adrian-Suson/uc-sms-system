@@ -39,7 +39,9 @@ const server = http.createServer(app);
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_PRODUCTION = NODE_ENV === 'production';
 const PORT = parseInt(process.env.PORT) || 9000;
-const HOST = process.env.HOST || (IS_PRODUCTION ? '0.0.0.0' : 'localhost');
+// Bind to 0.0.0.0 by default so platform port-scanners detect the service (Render, Docker, etc.)
+// Allow override via process.env.HOST when needed.
+const HOST = process.env.HOST || '0.0.0.0';
 const APP_NAME = process.env.APP_NAME || 'IOTServer';
 const APP_VERSION = process.env.APP_VERSION || '1.0.0';
 
