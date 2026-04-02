@@ -35,6 +35,14 @@ const inboxRoutes = require('./routes/inboxRoutes');
 const app = express();
 const server = http.createServer(app);
 
+// Log incoming OPTIONS / preflight requests early to help debug CORS issues
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    console.log(`-- CORS PRELIGHT -- ${req.method} ${req.originalUrl} Origin: ${req.headers.origin || 'none'} Access-Control-Request-Method: ${req.headers['access-control-request-method'] || 'N/A'}`);
+  }
+  next();
+});
+
 // Environment configuration
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_PRODUCTION = NODE_ENV === 'production';
@@ -55,7 +63,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
-  'https://uc-sms-system.onrender.com/',
+  'https://uc-sms-system.onrender.com'
 ];
 
 // Add production origins from env
