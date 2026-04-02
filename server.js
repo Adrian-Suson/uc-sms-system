@@ -59,15 +59,14 @@ server.timeout = REQUEST_TIMEOUT;
 
 // FIXED: CORS Origins - Must be explicit for credentials to work
 const ALLOWED_ORIGINS = [
+  'https://uc-sms-system.onrender.com',
+  'http://localhost:5173',  // ← ADD YOUR DEV SERVER HERE
   'http://localhost:3000',
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000',
-  'https://uc-sms-system.onrender.com'
+  'http://localhost:8080'
 ];
 
-// Add production origins from env
-if (process.env.CORS_ORIGIN) {
+// Allow adding extra origins from env only in non-production for debugging
+if (process.env.CORS_ORIGIN && !IS_PRODUCTION) {
   process.env.CORS_ORIGIN.split(',').forEach(origin => {
     ALLOWED_ORIGINS.push(origin.trim());
   });
@@ -78,20 +77,16 @@ const { Server } = require('socket.io');
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      // Allow no origin (server-to-server, curl)
-      if (!origin) return callback(null, true);
-
-      // Check allowed origins
+      if (!origin) return callback(null, true); // server-to-server or curl
       if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-
-      // Check dynamic domains
-      try {
-        const u = new URL(origin);
-        if (u.hostname.endsWith('.onrender.com')) return callback(null, true);
-        if (u.hostname.endsWith('.devtunnels.ms')) return callback(null, true);
-      } catch (_) { }
-
-      callback(null, true); // Allow all in development, restrict in production
+      // In development allow localhost origins for convenience
+      if (!IS_PRODUCTION) {
+        try {
+          const u = new URL(origin);
+          if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') return callback(null, true);
+        } catch (_) { }
+      }
+      return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
@@ -153,12 +148,12 @@ const corsOptions = {
       if (u.hostname.endsWith('.devtunnels.ms')) return callback(null, true);
     } catch (_) { }
 
+    // In production, only allow configured origins
     if (IS_PRODUCTION) {
-      callback(new Error('Not allowed by CORS'));
-    } else {
-      // In development, allow any origin
-      callback(null, true);
+      return callback(new Error('Not allowed by CORS'));
     }
+    // In development, allow localhost and any other origins
+    return callback(null, true);
   },
   credentials: true, // REQUIRED for cookies/auth headers
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -170,47 +165,21 @@ const corsOptions = {
 // Apply CORS before all routes
 app.use(cors(corsOptions));
 
-// Ensure Access-Control headers are always present for allowed origins
+// Ensure Access-Control headers are present for allowed origins
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (!origin) return next();
 
-  try {
-    const u = new URL(origin);
-    const isAllowed = ALLOWED_ORIGINS.includes(origin) || u.hostname.endsWith('.onrender.com') || u.hostname.endsWith('.devtunnels.ms');
-    if (isAllowed || !IS_PRODUCTION) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Methods', process.env.CORS_METHODS || 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', req.headers['access-control-request-headers'] || 'Content-Type, Authorization');
-      res.setHeader('Vary', 'Origin');
-    } else {
-      console.warn('Blocked CORS origin:', origin);
-    }
-  } catch (e) {
-    // If origin is not a valid URL, allow in development only
-    if (!IS_PRODUCTION) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Vary', 'Origin');
-    }
+  if (ALLOWED_ORIGINS.includes(origin) || !IS_PRODUCTION) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', process.env.CORS_METHODS || 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', req.headers['access-control-request-headers'] || 'Content-Type, Authorization');
+    res.setHeader('Vary', 'Origin');
+  } else {
+    console.warn('Blocked CORS origin:', origin);
   }
 
-  next();
-});
-
-// Handle OPTIONS preflight for all routes without using route patterns
-app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    const origin = req.headers.origin;
-    res.header('Access-Control-Allow-Methods', (process.env.CORS_METHODS || 'GET,POST,PUT,DELETE,PATCH,OPTIONS'));
-    res.header('Access-Control-Allow-Headers', req.headers['access-control-request-headers'] || 'Content-Type, Authorization');
-    if (origin) {
-      res.header('Access-Control-Allow-Origin', origin);
-      res.header('Vary', 'Origin');
-    }
-    return res.sendStatus(204);
-  }
   next();
 });
 
