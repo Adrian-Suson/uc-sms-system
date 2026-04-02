@@ -1,0 +1,48 @@
+# How to Initialize Your MySQL Database and Tables
+
+Before starting your Express server, you need to make sure your MySQL database and tables exist.  
+You can do this easily with the provided scripts.
+
+## Step 1: Configure Your Environment
+
+Create a `.env` file in your project root with your database settings:
+
+```
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=yourpassword
+DB_NAME=yourdatabase
+```
+
+## Step 2: Initialize the Database
+
+Run the following command in your terminal:
+
+```
+node src/config/initDb.js
+```
+
+This will create the database if it does not exist.
+
+## Step 3: Initialize the Tables
+
+After the database is created, run:
+
+```
+node src/config/initTables.js
+```
+
+This will create all the required tables if they do not exist.
+
+## Step 4: Start Your Server
+
+After initializing the database and tables, start your Express server as usual:
+
+```
+node src/index.js
+```
+
+---
+
+**Note:**  
+You only need to run `initDb.js` and `initTables.js` once, or whenever you want to ensure the database and tables exist.
