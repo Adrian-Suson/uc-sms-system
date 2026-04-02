@@ -2,18 +2,40 @@ const mysql = require('mysql2');
 require('dotenv').config();
 const bcrypt = require('bcrypt');
 
-const {
-  DB_HOST = 'localhost',
-  DB_USER = 'root',
-  DB_PASSWORD = '',
-  DB_NAME = 'test'
-} = process.env;
+// Resolve DB connection details preferring MYSQL_* / MYSQL_URL (Railway)
+function firstEnv(...names) {
+  for (const n of names) if (process.env[n]) return process.env[n];
+  return undefined;
+}
+
+const urlString = firstEnv('MYSQL_URL', 'DATABASE_URL');
+let host, user, password, database, port;
+if (urlString) {
+  try {
+    const p = new URL(urlString);
+    host = p.hostname;
+    port = p.port || undefined;
+    user = decodeURIComponent(p.username || '');
+    password = decodeURIComponent(p.password || '');
+    database = p.pathname ? p.pathname.replace(/^\//, '') : undefined;
+  } catch (e) {
+    console.warn('Could not parse MYSQL_URL for initTables:', e && e.message);
+  }
+}
+
+host = host || firstEnv('MYSQL_HOST', 'DB_HOST') || 'localhost';
+user = user || firstEnv('MYSQL_USER', 'DB_USER') || 'root';
+password = password || firstEnv('MYSQL_PASSWORD', 'DB_PASSWORD', 'DB_PASS') || '';
+database = database || firstEnv('MYSQL_DATABASE', 'DB_NAME') || 'test';
+port = port || firstEnv('MYSQL_PORT', 'DB_PORT');
+port = port ? parseInt(port, 10) : 3306;
 
 const connection = mysql.createConnection({
-  host: DB_HOST,
-  user: DB_USER,
-  password: DB_PASSWORD,
-  database: DB_NAME
+  host,
+  user,
+  password,
+  database,
+  port
 });
 
 const tableQueries = [
@@ -236,7 +258,7 @@ connection.connect((err) => {
           ['Tuition Reminder',
             'Dear Parent/Guardian, this is a reminder that tuition fees for {student_name} ({course} - {year_level} - {section}) are due on {due_date}. Please settle the balance at the school office. Thank you!',
             adminId],
-          ['Absence Notice', 
+          ['Absence Notice',
             'Dear Parent/Guardian, we noticed that {student_name} ({course} - {year_level} - {section}) was absent today, {date}. Please confirm the reason for the absence. Thank you.',
             adminId],
           ['Exam Schedule',
@@ -251,7 +273,7 @@ connection.connect((err) => {
           ['School Announcement',
             'Attention Parents: {announcement_text}. Please take note and cooperate accordingly. Thank you!',
             adminId]
-        ]; 
+        ];
 
         connection.query(
           'INSERT INTO message_templates (template_name, template_text, created_by) VALUES ?',
