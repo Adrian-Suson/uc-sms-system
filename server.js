@@ -17,8 +17,8 @@ if (missingEnvVars.length > 0) {
 
 // Database connection
 require('./config/db');
-// require('./config/initDb');
-// require('./config/initTables');
+ require('./config/initDb');
+ require('./config/initTables');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
